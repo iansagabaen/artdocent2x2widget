@@ -58,7 +58,7 @@
             const container = document.getElementById('content');
             try {
                 const response = await fetch(SHEET_CSV_URL);
-                if (!response.ok) throw new Error('Network response was not ok');
+                if (!response.ok) throw new Error('Network error');
                 const text = await response.text();
                 
                 const lines = text.split('\n');
@@ -77,21 +77,24 @@
                     const sessionDate = new Date(dateStr);
 
                     if (!isNaN(sessionDate.getTime()) && sessionDate >= now) {
-                        const leadDocent = row[8] || ""; // Column I
-                        const school = row[6] || "";     // Column G
-                        const grade = row[7] || "";      // Column H
+                        // Applying your specific column instructions
+                        const teacher = row[5] || ""; // Column F
+                        const school = row[6] || "";  // Column G
+                        const grade = row[7] || "";   // Column H
                         
-                        const assist1 = row[9] || "";    // Column J
-                        const assist2 = row[10] || "";   // Column K
-                        const partnersList = [assist1, assist2].filter(Boolean).join(", ");
+                        // Combine Lead (I), Assistant (J), and 2nd Assistant (K)
+                        const lead = row[8] || "";
+                        const assist1 = row[9] || "";
+                        const assist2 = row[10] || "";
+                        const teamList = [lead, assist1, assist2].filter(Boolean).join(", ");
 
                         nextSession = {
                             date: sessionDate,
                             lesson: row[4] || "Art Lesson", // Column E
-                            lead: leadDocent,
+                            teacher: teacher,
                             school: school,
                             grade: grade,
-                            partners: partnersList
+                            team: teamList
                         };
                         break;
                     }
@@ -109,8 +112,8 @@
                         <div class="days-until">${dayLabel}</div>
                         <div class="date-line">${dateStr}</div>
                         <div class="lesson">${nextSession.lesson}</div>
-                        <div class="details">${nextSession.lead} (${nextSession.grade}th) @ ${nextSession.school}</div>
-                        <div class="partners">${nextSession.partners}</div>
+                        <div class="details">${nextSession.teacher} (${nextSession.grade}th) @ ${nextSession.school}</div>
+                        <div class="partners">${nextSession.team}</div>
                     `;
                 } else {
                     container.innerHTML = `<div class="details">No future lessons found.</div>`;
