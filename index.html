@@ -27,11 +27,12 @@
     </style>
 </head>
 <body>
-    <div id="content">Searching...</div>
+    <div id="content">Syncing Schedule...</div>
 
     <script>
         const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj04ZOaev6TJ1MTMeEphGMNps96WhCnB29JpzUGx1cr3wJjWCsGC2x5cVMDier6PXQNkZzIA_DlmmJ/pub?output=csv";
 
+        // Required by WidgetWeb App
         function __wweb2WaitMillisecondsToWidgetIsReady() { return 1500; }
 
         async function fetchAndDisplay() {
@@ -40,58 +41,61 @@
                 const response = await fetch(SHEET_CSV_URL);
                 const text = await response.text();
                 
-                // Parse CSV and clean up quotes/spaces
-                const rows = text.split('\n').map(row => 
-                    row.split(',').map(cell => cell.replace(/["']/g, "").trim())
-                );
+                // COMMA-SAFE PARSER: Handles "April 17, 2026" inside quotes
+                const rows = text.split('\n').map(line => {
+                    const regex = /(".*?"|[^",\s]+)(?=\s*,|\s*$)/g;
+                    return (line.match(regex) || []).map(cell => cell.replace(/["']/g, "").trim());
+                });
 
                 const now = new Date();
                 now.setHours(0,0,0,0);
                 
                 let nextSession = null;
 
-                // SMART SCANNER: Loops through every row AND every column
-                for (let i = 0; i < rows.length; i++) {
-                    for (let j = 0; j < rows[i].length; j++) {
-                        const cellValue = rows[i][j];
-                        if (!cellValue || cellValue.length < 5) continue; 
+                // Loop through rows starting after the header
+                for (let i = 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (row.length < 2) continue;
 
-                        const possibleDate = new Date(cellValue);
-                        
-                        // If it's a valid date and in the future
-                        if (!isNaN(possibleDate.getTime()) && possibleDate >= now) {
-                            nextSession = {
-                                date: possibleDate,
-                                lesson: rows[i][j+1] || "",
-                                lead: rows[i][j+2] || "",
-                                location: rows[i][j+3] || "",
-                                partners: rows[i][j+4] || ""
-                            };
-                            break; 
-                        }
+                    // Column B (index 1) contains the human-readable date
+                    const dateStr = row[1];
+                    const sessionDate = new Date(dateStr);
+
+                    // Validate date and check if it is today or in the future
+                    if (!isNaN(sessionDate.getTime()) && sessionDate >= now) {
+                        nextSession = {
+                            date: sessionDate,
+                            lesson: row[4] || "Art Lesson",       // Column E
+                            teacher: row[5] || "",                // Column F
+                            school: row[6] || "Covington",        // Column G
+                            grade: row[7] || "",                  // Column H
+                            assistants: row[9] || ""               // Column J
+                        };
+                        break;
                     }
-                    if (nextSession) break; 
                 }
 
                 if (nextSession) {
-                    const diffDays = Math.ceil((nextSession.date - now) / (1000 * 60 * 60 * 24));
+                    const diffTime = nextSession.date - now;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                     const dayLabel = diffDays === 0 ? "Today" : `in ${diffDays} days`;
+                    
                     const dateStr = nextSession.date.toLocaleDateString('en-US', { 
-                        weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' 
+                        weekday: 'short', month: 'short', day: 'numeric' 
                     });
 
                     container.innerHTML = `
                         <div class="days-until">${dayLabel}</div>
                         <div class="date-line">${dateStr}</div>
                         <div class="lesson">${nextSession.lesson}</div>
-                        <div class="details">${nextSession.lead} ${nextSession.location}</div>
-                        <div class="partners">${nextSession.partners}</div>
+                        <div class="details">${nextSession.teacher} (${nextSession.grade}th) @ ${nextSession.school}</div>
+                        <div class="partners">${nextSession.assistants}</div>
                     `;
                 } else {
-                    container.innerHTML = `<div class="details">No future lessons found in sheet.</div>`;
+                    container.innerHTML = `<div class="details">No future lessons found.</div>`;
                 }
             } catch (e) {
-                container.innerHTML = `<div class="details">Connection error.</div>`;
+                container.innerHTML = `<div class="details">Error syncing schedule.</div>`;
             }
         }
 
