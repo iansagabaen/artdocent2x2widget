@@ -20,48 +20,50 @@
             text-shadow: 0px 1px 3px rgba(0,0,0,0.9);
         }
         .days-until { color: #FF9F0A; font-weight: 700; font-size: 11px; text-transform: uppercase; }
-        .date { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+        .date-line { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
         .lesson { font-weight: 800; font-size: 14px; color: #0A84FF; }
         .details { font-size: 10px; opacity: 0.8; line-height: 1.2; }
         .partners { font-size: 10px; opacity: 0.6; font-style: italic; margin-top: 2px; }
     </style>
 </head>
 <body>
-    <div id="content">Loading schedule...</div>
+    <div id="content">Syncing...</div>
 
     <script>
-        // PASTE YOUR CSV LINK HERE
         const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj04ZOaev6TJ1MTMeEphGMNps96WhCnB29JpzUGx1cr3wJjWCsGC2x5cVMDier6PXQNkZzIA_DlmmJ/pub?output=csv";
 
-        function __wweb2WaitMillisecondsToWidgetIsReady() { return 1000; }
+        function __wweb2WaitMillisecondsToWidgetIsReady() { return 1500; }
 
         async function fetchAndDisplay() {
             const container = document.getElementById('content');
             try {
                 const response = await fetch(SHEET_CSV_URL);
-                const data = await response.text();
+                const text = await response.text();
                 
-                // Very basic CSV parser
-                const rows = data.split('\n').map(row => row.split(','));
+                // Parse CSV and clean up quotes/spaces
+                const rows = text.split('\n').map(row => 
+                    row.split(',').map(cell => cell.replace(/["']/g, "").trim())
+                );
+
                 const now = new Date();
                 now.setHours(0,0,0,0);
                 
                 let nextSession = null;
 
-                // Assuming Column A is Date, B is Lesson, C is Lead, D is Location, E is Partners
-                // Adjust index (r[0], r[1], etc) if your columns are different
-                for (let i = 1; i < rows.length; i++) {
+                // Loop through rows (skip header if necessary)
+                for (let i = 0; i < rows.length; i++) {
                     const r = rows[i];
-                    if (!r[0]) continue;
+                    if (!r[1]) continue; // Skip if no date in column B
                     
-                    const sessionDate = new Date(r[0]);
-                    if (sessionDate >= now) {
+                    const sessionDate = new Date(r[1]);
+                    
+                    if (!isNaN(sessionDate.getTime()) && sessionDate >= now) {
                         nextSession = {
                             date: sessionDate,
-                            lesson: r[1],
-                            lead: r[2],
-                            location: r[3],
-                            partners: r[4]
+                            lesson: r[2],      // Column C
+                            lead: r[3],        // Column D
+                            location: r[4],    // Column E
+                            partners: r[5]     // Column F
                         };
                         break;
                     }
@@ -70,20 +72,22 @@
                 if (nextSession) {
                     const diffDays = Math.ceil((nextSession.date - now) / (1000 * 60 * 60 * 24));
                     const dayLabel = diffDays === 0 ? "Today" : `in ${diffDays} days`;
-                    const dateStr = nextSession.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+                    const dateStr = nextSession.date.toLocaleDateString('en-US', { 
+                        weekday: 'short', month: 'short', day: 'numeric' 
+                    });
 
                     container.innerHTML = `
                         <div class="days-until">${dayLabel}</div>
-                        <div class="date">${dateStr}</div>
+                        <div class="date-line">${dateStr}</div>
                         <div class="lesson">${nextSession.lesson}</div>
                         <div class="details">${nextSession.lead} ${nextSession.location}</div>
                         <div class="partners">${nextSession.partners}</div>
                     `;
                 } else {
-                    container.innerHTML = "No upcoming lessons.";
+                    container.innerHTML = `<div class="details">No upcoming lessons found.</div>`;
                 }
             } catch (e) {
-                container.innerHTML = "Check connection.";
+                container.innerHTML = `<div class="details">Error loading schedule.</div>`;
             }
         }
 
