@@ -32,8 +32,27 @@
     <script>
         const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj04ZOaev6TJ1MTMeEphGMNps96WhCnB29JpzUGx1cr3wJjWCsGC2x5cVMDier6PXQNkZzIA_DlmmJ/pub?output=csv";
 
-        // Required by WidgetWeb App
         function __wweb2WaitMillisecondsToWidgetIsReady() { return 1500; }
+
+        // Robust CSV row parser that handles commas inside quotes
+        function parseCSVRow(str) {
+            const arr = [];
+            let quote = false;
+            let col = "";
+            for (let c = 0; c < str.length; c++) {
+                let char = str[c];
+                if (char === '"') {
+                    quote = !quote;
+                } else if (char === ',' && !quote) {
+                    arr.push(col.trim());
+                    col = "";
+                } else {
+                    col += char;
+                }
+            }
+            arr.push(col.trim());
+            return arr;
+        }
 
         async function fetchAndDisplay() {
             const container = document.getElementById('content');
@@ -41,27 +60,21 @@
                 const response = await fetch(SHEET_CSV_URL);
                 const text = await response.text();
                 
-                // COMMA-SAFE PARSER: Handles "April 17, 2026" inside quotes
-                const rows = text.split('\n').map(line => {
-                    const regex = /(".*?"|[^",\s]+)(?=\s*,|\s*$)/g;
-                    return (line.match(regex) || []).map(cell => cell.replace(/["']/g, "").trim());
-                });
+                const lines = text.split('\n');
+                const rows = lines.map(line => parseCSVRow(line));
 
                 const now = new Date();
                 now.setHours(0,0,0,0);
                 
                 let nextSession = null;
 
-                // Loop through rows starting after the header
                 for (let i = 1; i < rows.length; i++) {
                     const row = rows[i];
                     if (row.length < 2) continue;
 
-                    // Column B (index 1) contains the human-readable date
-                    const dateStr = row[1];
+                    const dateStr = row[1]; // Column B
                     const sessionDate = new Date(dateStr);
 
-                    // Validate date and check if it is today or in the future
                     if (!isNaN(sessionDate.getTime()) && sessionDate >= now) {
                         nextSession = {
                             date: sessionDate,
@@ -92,10 +105,10 @@
                         <div class="partners">${nextSession.assistants}</div>
                     `;
                 } else {
-                    container.innerHTML = `<div class="details">No future lessons found.</div>`;
+                    container.innerHTML = `<div class="details">No upcoming lessons found.</div>`;
                 }
             } catch (e) {
-                container.innerHTML = `<div class="details">Error syncing schedule.</div>`;
+                container.innerHTML = `<div class="details">Error syncing.</div>`;
             }
         }
 
