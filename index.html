@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="js-widget-title" content="Art Docent">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="https://widgetweb.app/js-widget.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+            background-color: transparent;
+            color: white;
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100vh;
+            gap: 2px;
+            text-shadow: 0px 1px 3px rgba(0,0,0,0.9);
+        }
+        .days-until { color: #FF9F0A; font-weight: 700; font-size: 11px; text-transform: uppercase; }
+        .date { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+        .lesson { font-weight: 800; font-size: 14px; color: #0A84FF; }
+        .details { font-size: 10px; opacity: 0.8; line-height: 1.2; }
+        .partners { font-size: 10px; opacity: 0.6; font-style: italic; margin-top: 2px; }
+    </style>
+</head>
+<body>
+    <div id="content">Loading schedule...</div>
+
+    <script>
+        // PASTE YOUR CSV LINK HERE
+        const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj04ZOaev6TJ1MTMeEphGMNps96WhCnB29JpzUGx1cr3wJjWCsGC2x5cVMDier6PXQNkZzIA_DlmmJ/pub?output=csv";
+
+        function __wweb2WaitMillisecondsToWidgetIsReady() { return 1000; }
+
+        async function fetchAndDisplay() {
+            const container = document.getElementById('content');
+            try {
+                const response = await fetch(SHEET_CSV_URL);
+                const data = await response.text();
+                
+                // Very basic CSV parser
+                const rows = data.split('\n').map(row => row.split(','));
+                const now = new Date();
+                now.setHours(0,0,0,0);
+                
+                let nextSession = null;
+
+                // Assuming Column A is Date, B is Lesson, C is Lead, D is Location, E is Partners
+                // Adjust index (r[0], r[1], etc) if your columns are different
+                for (let i = 1; i < rows.length; i++) {
+                    const r = rows[i];
+                    if (!r[0]) continue;
+                    
+                    const sessionDate = new Date(r[0]);
+                    if (sessionDate >= now) {
+                        nextSession = {
+                            date: sessionDate,
+                            lesson: r[1],
+                            lead: r[2],
+                            location: r[3],
+                            partners: r[4]
+                        };
+                        break;
+                    }
+                }
+
+                if (nextSession) {
+                    const diffDays = Math.ceil((nextSession.date - now) / (1000 * 60 * 60 * 24));
+                    const dayLabel = diffDays === 0 ? "Today" : `in ${diffDays} days`;
+                    const dateStr = nextSession.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+                    container.innerHTML = `
+                        <div class="days-until">${dayLabel}</div>
+                        <div class="date">${dateStr}</div>
+                        <div class="lesson">${nextSession.lesson}</div>
+                        <div class="details">${nextSession.lead} ${nextSession.location}</div>
+                        <div class="partners">${nextSession.partners}</div>
+                    `;
+                } else {
+                    container.innerHTML = "No upcoming lessons.";
+                }
+            } catch (e) {
+                container.innerHTML = "Check connection.";
+            }
+        }
+
+        fetchAndDisplay();
+    </script>
+</body>
+</html>
