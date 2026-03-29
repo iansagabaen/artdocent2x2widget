@@ -16,18 +16,24 @@
             flex-direction: column;
             justify-content: center;
             height: 100vh;
-            gap: 2px;
             text-shadow: 0px 1px 3px rgba(0,0,0,0.9);
+        }
+        /* This container forces the wrapping you requested */
+        .widget-container {
+            max-width: 140px; 
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
         }
         .days-until { color: #FF9F0A; font-weight: 700; font-size: 11px; text-transform: uppercase; }
         .date-line { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
-        .lesson { font-weight: 800; font-size: 14px; color: #0A84FF; }
+        .lesson { font-weight: 800; font-size: 14px; color: #0A84FF; line-height: 1.1; }
         .details { font-size: 10px; opacity: 0.8; line-height: 1.2; }
-        .partners { font-size: 10px; opacity: 0.6; font-style: italic; margin-top: 2px; }
+        .partners { font-size: 10px; opacity: 0.6; font-style: italic; margin-top: 2px; line-height: 1.2; }
     </style>
 </head>
 <body>
-    <div id="content">Syncing Schedule...</div>
+    <div id="content" class="widget-container">Syncing...</div>
 
     <script>
         const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj04ZOaev6TJ1MTMeEphGMNps96WhCnB29JpzUGx1cr3wJjWCsGC2x5cVMDier6PXQNkZzIA_DlmmJ/pub?output=csv";
@@ -77,15 +83,13 @@
                     const sessionDate = new Date(dateStr);
 
                     if (!isNaN(sessionDate.getTime()) && sessionDate >= now) {
-                        // Applying your specific column instructions
                         const teacher = row[5] || ""; // Column F
                         const school = row[6] || "";  // Column G
                         const grade = row[7] || "";   // Column H
+                        const lead = row[8] || "";    // Column I
+                        const assist1 = row[9] || ""; // Column J
+                        const assist2 = row[10] || ""; // Column K
                         
-                        // Combine Lead (I), Assistant (J), and 2nd Assistant (K)
-                        const lead = row[8] || "";
-                        const assist1 = row[9] || "";
-                        const assist2 = row[10] || "";
                         const teamList = [lead, assist1, assist2].filter(Boolean).join(", ");
 
                         nextSession = {
