@@ -30,15 +30,15 @@
     <div id="content">Syncing Schedule...</div>
 
     <script>
-        const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj04ZOaev6TJ1MTMeEphGMNps96WhCnB29JpzUGx1cr3wJjWCsGC2x5cVMDier6PXQNkZzIA_DlmmJ/pub?output=csv";
+        const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1v (etc) ... ?output=csv";
 
         function __wweb2WaitMillisecondsToWidgetIsReady() { return 1500; }
 
-        // Robust CSV row parser that handles commas inside quotes
         function parseCSVRow(str) {
             const arr = [];
             let quote = false;
             let col = "";
+            if (!str) return arr;
             for (let c = 0; c < str.length; c++) {
                 let char = str[c];
                 if (char === '"') {
@@ -59,7 +59,6 @@
             try {
                 const response = await fetch(SHEET_CSV_URL);
                 const text = await response.text();
-                
                 const lines = text.split('\n');
                 const rows = lines.map(line => parseCSVRow(line));
 
@@ -76,13 +75,23 @@
                     const sessionDate = new Date(dateStr);
 
                     if (!isNaN(sessionDate.getTime()) && sessionDate >= now) {
+                        // Correcting the mapping based on your spreadsheet columns
+                        const leadDocent = row[8] || ""; // Column I
+                        const school = row[6] || "";     // Column G
+                        const grade = row[7] || "";      // Column H
+                        
+                        // Combine Assistant 1 (J) and Assistant 2 (K)
+                        const assist1 = row[9] || "";
+                        const assist2 = row[10] || "";
+                        const partnersList = [assist1, assist2].filter(Boolean).join(", ");
+
                         nextSession = {
                             date: sessionDate,
-                            lesson: row[4] || "Art Lesson",       // Column E
-                            teacher: row[5] || "",                // Column F
-                            school: row[6] || "Covington",        // Column G
-                            grade: row[7] || "",                  // Column H
-                            assistants: row[9] || ""               // Column J
+                            lesson: row[4] || "Art Lesson", // Column E
+                            lead: leadDocent,
+                            school: school,
+                            grade: grade,
+                            partners: partnersList
                         };
                         break;
                     }
@@ -92,7 +101,6 @@
                     const diffTime = nextSession.date - now;
                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                     const dayLabel = diffDays === 0 ? "Today" : `in ${diffDays} days`;
-                    
                     const dateStr = nextSession.date.toLocaleDateString('en-US', { 
                         weekday: 'short', month: 'short', day: 'numeric' 
                     });
@@ -101,11 +109,11 @@
                         <div class="days-until">${dayLabel}</div>
                         <div class="date-line">${dateStr}</div>
                         <div class="lesson">${nextSession.lesson}</div>
-                        <div class="details">${nextSession.teacher} (${nextSession.grade}th) @ ${nextSession.school}</div>
-                        <div class="partners">${nextSession.assistants}</div>
+                        <div class="details">${nextSession.lead} (${nextSession.grade}th) @ ${nextSession.school}</div>
+                        <div class="partners">${nextSession.partners}</div>
                     `;
                 } else {
-                    container.innerHTML = `<div class="details">No upcoming lessons found.</div>`;
+                    container.innerHTML = `<div class="details">No future lessons found.</div>`;
                 }
             } catch (e) {
                 container.innerHTML = `<div class="details">Error syncing.</div>`;
