@@ -30,7 +30,7 @@
     <div id="content">Syncing Schedule...</div>
 
     <script>
-        const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1v (etc) ... ?output=csv";
+        const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj04ZOaev6TJ1MTMeEphGMNps96WhCnB29JpzUGx1cr3wJjWCsGC2x5cVMDier6PXQNkZzIA_DlmmJ/pub?output=csv";
 
         function __wweb2WaitMillisecondsToWidgetIsReady() { return 1500; }
 
@@ -58,7 +58,9 @@
             const container = document.getElementById('content');
             try {
                 const response = await fetch(SHEET_CSV_URL);
+                if (!response.ok) throw new Error('Network response was not ok');
                 const text = await response.text();
+                
                 const lines = text.split('\n');
                 const rows = lines.map(line => parseCSVRow(line));
 
@@ -75,14 +77,12 @@
                     const sessionDate = new Date(dateStr);
 
                     if (!isNaN(sessionDate.getTime()) && sessionDate >= now) {
-                        // Correcting the mapping based on your spreadsheet columns
                         const leadDocent = row[8] || ""; // Column I
                         const school = row[6] || "";     // Column G
                         const grade = row[7] || "";      // Column H
                         
-                        // Combine Assistant 1 (J) and Assistant 2 (K)
-                        const assist1 = row[9] || "";
-                        const assist2 = row[10] || "";
+                        const assist1 = row[9] || "";    // Column J
+                        const assist2 = row[10] || "";   // Column K
                         const partnersList = [assist1, assist2].filter(Boolean).join(", ");
 
                         nextSession = {
@@ -116,7 +116,7 @@
                     container.innerHTML = `<div class="details">No future lessons found.</div>`;
                 }
             } catch (e) {
-                container.innerHTML = `<div class="details">Error syncing.</div>`;
+                container.innerHTML = `<div class="details">Error syncing schedule.</div>`;
             }
         }
 
