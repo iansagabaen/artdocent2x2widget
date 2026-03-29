@@ -11,7 +11,7 @@
             background-color: transparent;
             color: white;
             margin: 0;
-            padding: 10px;
+            padding: 12px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -27,7 +27,7 @@
     </style>
 </head>
 <body>
-    <div id="content">Syncing...</div>
+    <div id="content">Searching...</div>
 
     <script>
         const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj04ZOaev6TJ1MTMeEphGMNps96WhCnB29JpzUGx1cr3wJjWCsGC2x5cVMDier6PXQNkZzIA_DlmmJ/pub?output=csv";
@@ -50,30 +50,34 @@
                 
                 let nextSession = null;
 
-                // Loop through rows (skip header if necessary)
+                // SMART SCANNER: Loops through every row AND every column
                 for (let i = 0; i < rows.length; i++) {
-                    const r = rows[i];
-                    if (!r[1]) continue; // Skip if no date in column B
-                    
-                    const sessionDate = new Date(r[1]);
-                    
-                    if (!isNaN(sessionDate.getTime()) && sessionDate >= now) {
-                        nextSession = {
-                            date: sessionDate,
-                            lesson: r[2],      // Column C
-                            lead: r[3],        // Column D
-                            location: r[4],    // Column E
-                            partners: r[5]     // Column F
-                        };
-                        break;
+                    for (let j = 0; j < rows[i].length; j++) {
+                        const cellValue = rows[i][j];
+                        if (!cellValue || cellValue.length < 5) continue; 
+
+                        const possibleDate = new Date(cellValue);
+                        
+                        // If it's a valid date and in the future
+                        if (!isNaN(possibleDate.getTime()) && possibleDate >= now) {
+                            nextSession = {
+                                date: possibleDate,
+                                lesson: rows[i][j+1] || "",
+                                lead: rows[i][j+2] || "",
+                                location: rows[i][j+3] || "",
+                                partners: rows[i][j+4] || ""
+                            };
+                            break; 
+                        }
                     }
+                    if (nextSession) break; 
                 }
 
                 if (nextSession) {
                     const diffDays = Math.ceil((nextSession.date - now) / (1000 * 60 * 60 * 24));
                     const dayLabel = diffDays === 0 ? "Today" : `in ${diffDays} days`;
                     const dateStr = nextSession.date.toLocaleDateString('en-US', { 
-                        weekday: 'short', month: 'short', day: 'numeric' 
+                        weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' 
                     });
 
                     container.innerHTML = `
@@ -84,10 +88,10 @@
                         <div class="partners">${nextSession.partners}</div>
                     `;
                 } else {
-                    container.innerHTML = `<div class="details">No upcoming lessons found.</div>`;
+                    container.innerHTML = `<div class="details">No future lessons found in sheet.</div>`;
                 }
             } catch (e) {
-                container.innerHTML = `<div class="details">Error loading schedule.</div>`;
+                container.innerHTML = `<div class="details">Connection error.</div>`;
             }
         }
 
