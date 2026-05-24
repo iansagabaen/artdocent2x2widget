@@ -35,77 +35,98 @@
     <div id="content" class="widget-container">Syncing...</div>
 
     <script>
-// Tells the app to wait 5 seconds now, just to be safe
-function __wweb2WaitMillisecondsToWidgetIsReady() { return 5000; }
+        const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQj04ZOaev6TJ1MTMeEphGMNps96WhCnB29JpzUGx1cr3wJjWCsGC2x5cVMDier6PXQNkZzIA_DlmmJ/pub?output=csv";
 
-async function fetchAndDisplay() {
-    const container = document.getElementById('content');
-    
-    try {
-        // STEP 1: Update text so we know the script started
-        container.innerHTML = "1. Connecting...";
+        function __wweb2WaitMillisecondsToWidgetIsReady() { return 4000; }
 
-        const response = await fetch(SHEET_CSV_URL + "&t=" + Date.now());
-        
-        // STEP 2: We successfully talked to Google
-        container.innerHTML = "2. Downloading...";
-        
-        if (!response.ok) throw new Error('Network error');
-        const text = await response.text();
-        
-        // STEP 3: We got the data, now parsing
-        container.innerHTML = "3. Reading Schedule...";
+        function parseCSVRow(str) {
+            const arr = [];
+            let quote = false;
+            let col = "";
+            if (!str) return arr;
+            for (let c = 0; c < str.length; c++) {
+                let char = str[c];
+                if (char === '"') {
+                    quote = !quote;
+                } else if (char === ',' && !quote) {
+                    arr.push(col.trim());
+                    col = "";
+                } else {
+                    col += char;
+                }
+            }
+            arr.push(col.trim());
+            return arr;
+        }
 
-        const lines = text.split('\n');
-        const rows = lines.map(line => parseCSVRow(line));
-        const now = new Date();
-        now.setHours(0,0,0,0);
-        
-        let nextSession = null;
+        async function fetchAndDisplay() {
+            const container = document.getElementById('content');
+            try {
+                const response = await fetch(SHEET_CSV_URL);
+                if (!response.ok) throw new Error('Network error');
+                const text = await response.text();
+                
+                const lines = text.split('\n');
+                const rows = lines.map(line => parseCSVRow(line));
 
-        for (let i = 1; i < rows.length; i++) {
-            const row = rows[i];
-            if (row.length < 2) continue;
-            const sessionDate = new Date(row[1]);
-            if (!isNaN(sessionDate.getTime()) && sessionDate >= now) {
-                const teamList = [row[8], row[9], row[10]].filter(Boolean).join(", ");
-                nextSession = {
-                    date: sessionDate,
-                    lesson: row[4] || "Art Lesson",
-                    teacher: row[5] || "",
-                    school: row[6] || "",
-                    grade: row[7] || "",
-                    team: teamList
-                };
-                break;
+                const now = new Date();
+                now.setHours(0,0,0,0);
+                
+                let nextSession = null;
+
+                for (let i = 1; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (row.length < 2) continue;
+
+                    const dateStr = row[1]; // Column B
+                    const sessionDate = new Date(dateStr);
+
+                    if (!isNaN(sessionDate.getTime()) && sessionDate >= now) {
+                        const teacher = row[5] || ""; // Column F
+                        const school = row[6] || "";  // Column G
+                        const grade = row[7] || "";   // Column H
+                        const lead = row[8] || "";    // Column I
+                        const assist1 = row[9] || ""; // Column J
+                        const assist2 = row[10] || ""; // Column K
+                        
+                        const teamList = [lead, assist1, assist2].filter(Boolean).join(", ");
+
+                        nextSession = {
+                            date: sessionDate,
+                            lesson: row[4] || "Art Lesson", // Column E
+                            teacher: teacher,
+                            school: school,
+                            grade: grade,
+                            team: teamList
+                        };
+                        break;
+                    }
+                }
+
+                if (nextSession) {
+                    const diffTime = nextSession.date - now;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    const dayLabel = diffDays === 0 ? "Today" : `in ${diffDays} days`;
+                    const dateStr = nextSession.date.toLocaleDateString('en-US', { 
+                        weekday: 'short', month: 'short', day: 'numeric' 
+                    });
+
+                    container.innerHTML = `
+                        <div class="days-until">${dayLabel}</div>
+                        <div class="date-line">${dateStr}</div>
+                        <div class="lesson">${nextSession.lesson}</div>
+                        <div class="details">${nextSession.teacher} (${nextSession.grade}) @ ${nextSession.school}</div>
+                        <div class="partners">${nextSession.team}</div>
+                    `;
+                } else {
+                    container.innerHTML = `<div class="details">No future lessons found.</div>`;
+                }
+            } catch (e) {
+                container.innerHTML = `<div class="details">Error syncing schedule.</div>`;
             }
         }
 
-        if (nextSession) {
-            const diffDays = Math.ceil((nextSession.date - now) / (1000 * 60 * 60 * 24));
-            const dayLabel = diffDays === 0 ? "Today" : `in ${diffDays} days`;
-            const dateStr = nextSession.date.toLocaleDateString('en-US', { 
-                weekday: 'short', month: 'short', day: 'numeric' 
-            });
-
-            // SUCCESS: Show the final design
-            container.innerHTML = `
-                <div class="days-until">${dayLabel}</div>
-                <div class="date-line">${dateStr}</div>
-                <div class="lesson">${nextSession.lesson}</div>
-                <div class="details">${nextSession.teacher} (Grade ${nextSession.grade}) @ ${nextSession.school}</div>
-                <div class="partners">${nextSession.team}</div>
-            `;
-        } else {
-            container.innerHTML = "No lessons found.";
-        }
-    } catch (e) {
-        // If it fails, it will tell us it's an "Error"
-        container.innerHTML = "Error: " + e.message;
-    }
-}
-
-fetchAndDisplay();
+        fetchAndDisplay();
     </script>
 </body>
 </html>
